@@ -26,5 +26,6 @@ An interactive Streamlit web app that predicts Iris flower species using a train
 
 1️⃣ Clone or download this repository:  
 ```bash
-git clone https://github.com/yourusername/iris-streamlit-app.git
+git clone https://github.com/pyayivargitam/iris-streamlit-app.git
+
 cd iris-streamlit-app
