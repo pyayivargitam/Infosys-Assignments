@@ -1,5 +1,7 @@
-ImpactSense - Earthquake Impact Prediction
+**ImpactSense - Earthquake Impact Prediction**
+
 Project Overview
+
 This project aims to develop a machine learning model to predict the impact of earthquakes by estimating magnitude, damage severity, or risk categories. It leverages geophysical and environmental data such as latitude, longitude, seismic depth, and geological features for impact assessment, aiding in early disaster planning and emergency response.
 
 Use Cases
