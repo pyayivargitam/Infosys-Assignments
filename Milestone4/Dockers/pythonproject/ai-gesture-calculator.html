@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Gesture Calculator - Pinch & Hover Click</title>
+
+    <!-- Tailwind CSS CDN (fine for local/demo usage) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.4.1675469240/drawing_utils.js"></script>
+
+    <style>
+      body {
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial;
+        background-color: #1f2937;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      #video-feed {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+        opacity: 0.1;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      #finger-indicator {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 0 10px #3b82f6, 0 0 20px rgba(59, 130, 246, 0.5);
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+        transition: background-color 0.08s, transform 0.05s;
+      }
+
+      .calc-button {
+        transition: all 0.1s ease;
+        user-select: none;
+        cursor: pointer;
+        min-width: 64px;
+        min-height: 64px;
+      }
+
+      .highlighted {
+        background-color: #4b5563 !important;
+        box-shadow: 0 0 8px rgba(107, 114, 128, 0.5);
+      }
+
+      .pressed {
+        background-color: #fca5a5 !important;
+        transform: scale(0.95);
+        box-shadow: 0 0 15px #fca5a5;
+      }
+
+      #status-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        text-align: center;
+        padding: 6px;
+        font-size: 0.95rem;
+        z-index: 200;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="video-feed" playsinline muted></video>
+    <div id="finger-indicator"></div>
+
+    <div id="status-bar">
+      Status:
+      <span id="detection-status" class="text-yellow-400">Loading AI...</span> |
+      Gesture: <span id="gesture-status" class="text-white">Awaiting Hand</span>
+    </div>
+
+    <div
+      id="calculator-app"
+      class="w-full max-w-sm bg-gray-800 p-6 rounded-3xl shadow-2xl z-10"
+    >
+      <div class="mb-4">
+        <div
+          id="history-display"
+          class="text-gray-400 text-right text-sm h-6"
+        ></div>
+        <input
+          id="main-display"
+          type="text"
+          value="0"
+          readonly
+          class="w-full text-white text-4xl font-light bg-transparent border-none text-right py-2 focus:outline-none"
+        />
+      </div>
+
+      <div class="grid grid-cols-4 gap-3 calculator-grid">
+        <button
+          data-value="C"
+          class="calc-button bg-gray-600 hover:bg-gray-500 text-white rounded-xl font-semibold col-span-2"
+        >
+          C
+        </button>
+        <button
+          data-value="/"
+          class="calc-button bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-semibold"
+        >
+          /
+        </button>
+        <button
+          data-value="*"
+          class="calc-button bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-semibold"
+        >
+          *
+        </button>
+
+        <button
+          data-value="7"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          7
+        </button>
+        <button
+          data-value="8"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          8
+        </button>
+        <button
+          data-value="9"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          9
+        </button>
+        <button
+          data-value="-"
+          class="calc-button bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-semibold"
+        >
+          -
+        </button>
+
+        <button
+          data-value="4"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          4
+        </button>
+        <button
+          data-value="5"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          5
+        </button>
+        <button
+          data-value="6"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          6
+        </button>
+        <button
+          data-value="+"
+          class="calc-button bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-semibold"
+        >
+          +
+        </button>
+
+        <button
+          data-value="1"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          1
+        </button>
+        <button
+          data-value="2"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          2
+        </button>
+        <button
+          data-value="3"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          3
+        </button>
+        <button
+          data-value="="
+          class="calc-button bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold row-span-2"
+        >
+          =
+        </button>
+
+        <button
+          data-value="0"
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold col-span-2"
+        >
+          0
+        </button>
+        <button
+          data-value="."
+          class="calc-button bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold"
+        >
+          .
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const mainDisplay = document.getElementById("main-display");
+      const historyDisplay = document.getElementById("history-display");
+      const videoElement = document.getElementById("video-feed");
+      const fingerIndicator = document.getElementById("finger-indicator");
+      const buttons = Array.from(document.querySelectorAll(".calc-button"));
+      const gestureStatusEl = document.getElementById("gesture-status");
+      const detectionStatusEl = document.getElementById("detection-status");
+
+      let currentInput = "0",
+        operator = null,
+        prevValue = null,
+        waitingForSecondOperand = false;
+      let lastClickTime = 0;
+      const DEBOUNCE_DELAY = 500;
+      const PINCH_THRESHOLD = 0.04;
+      const HOVER_DELAY = 1000;
+      let hoverTimers = new Map();
+
+      function calculate(a, op, b) {
+        const x = parseFloat(a),
+          y = parseFloat(b);
+        if (isNaN(x) || isNaN(y)) return b;
+        if (op === "/" && y === 0) return "Error";
+        const map = { "+": x + y, "-": x - y, "*": x * y, "/": x / y };
+        return Object.prototype.hasOwnProperty.call(map, op) ? map[op] : b;
+      }
+
+      function updateDisplay() {
+        mainDisplay.value =
+          currentInput.length > 12
+            ? Number(currentInput).toPrecision(8)
+            : currentInput;
+      }
+
+      function handleInput(val) {
+        const isNum = !isNaN(parseFloat(val)) || val === ".";
+        if (currentInput === "Error" && val !== "C") return;
+
+        if (val === "C") {
+          currentInput = "0";
+          prevValue = null;
+          operator = null;
+          waitingForSecondOperand = false;
+          historyDisplay.textContent = "";
+        } else if (isNum) {
+          if (waitingForSecondOperand) {
+            currentInput = val;
+            waitingForSecondOperand = false;
+          } else if (currentInput === "0" && val !== ".") currentInput = val;
+          else if (val !== "." || !currentInput.includes("."))
+            currentInput += val;
+        } else if (["+", "-", "*", "/"].includes(val)) {
+          if (prevValue === null) {
+            prevValue = currentInput;
+            historyDisplay.textContent = currentInput + " " + val;
+          } else if (!waitingForSecondOperand) {
+            const result = calculate(prevValue, operator, currentInput);
+            if (result === "Error") {
+              currentInput = "Error";
+              prevValue = null;
+              operator = null;
+              historyDisplay.textContent = "Division by zero!";
+            } else {
+              currentInput = String(result);
+              prevValue = currentInput;
+              historyDisplay.textContent = currentInput + " " + val;
+            }
+          } else {
+            historyDisplay.textContent = prevValue + " " + val;
+          }
+          operator = val;
+          waitingForSecondOperand = true;
+        } else if (val === "=") {
+          if (prevValue && operator) {
+            const result = calculate(prevValue, operator, currentInput);
+            if (result === "Error") {
+              currentInput = "Error";
+              historyDisplay.textContent = "Division by zero!";
+            } else {
+              historyDisplay.textContent = `${prevValue} ${operator} ${currentInput} =`;
+              currentInput = String(result);
+            }
+            prevValue = null;
+            operator = null;
+            waitingForSecondOperand = false;
+          }
+        }
+        updateDisplay();
+      }
+
+      buttons.forEach((btn) =>
+        btn.addEventListener("click", () => handleInput(btn.dataset.value))
+      );
+
+      function mapNormalizedToScreen(nx, ny) {
+        const mirroredX = window.innerWidth * (1 - nx);
+        const screenY = window.innerHeight * ny;
+        return { x: mirroredX, y: screenY };
+      }
+
+      function isPointInButton(px, py, button) {
+        const rect = button.getBoundingClientRect();
+        const margin = 6;
+        return (
+          px >= rect.left - margin &&
+          px <= rect.right + margin &&
+          py >= rect.top - margin &&
+          py <= rect.bottom + margin
+        );
+      }
+
+      function distance3D(a, b) {
+        const dx = a.x - b.x,
+          dy = a.y - b.y,
+          dz = (a.z || 0) - (b.z || 0);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+      }
+
+      const hands = new Hands({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
+      });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 0,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5,
+      });
+      hands.onResults(onResults);
+
+      async function setupCamera() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+          videoElement.srcObject = stream;
+          await videoElement.play();
+          detectionStatusEl.textContent = "Camera Active";
+          detectionStatusEl.className = "text-green-400";
+
+          async function loop() {
+            if (videoElement.readyState >= 2)
+              await hands.send({ image: videoElement });
+            requestAnimationFrame(loop);
+          }
+          loop();
+        } catch (err) {
+          console.error("Camera Error:", err);
+          mainDisplay.value = "Error: Camera Access Denied";
+          detectionStatusEl.textContent = "Camera Failed!";
+          detectionStatusEl.className = "text-red-400";
+        }
+      }
+
+      function onResults(results) {
+        if (
+          !results ||
+          !results.multiHandLandmarks ||
+          results.multiHandLandmarks.length === 0
+        ) {
+          fingerIndicator.style.display = "none";
+          buttons.forEach((b) => b.classList.remove("highlighted", "pressed"));
+          gestureStatusEl.textContent = "---";
+          return;
+        }
+
+        const landmarks = results.multiHandLandmarks[0];
+        const indexTip = landmarks[8];
+        const thumbTip = landmarks[4];
+        const pinching = distance3D(indexTip, thumbTip) < PINCH_THRESHOLD;
+
+        const pos = mapNormalizedToScreen(indexTip.x, indexTip.y);
+        fingerIndicator.style.display = "block";
+        fingerIndicator.style.transform = `translate(${pos.x - 10}px, ${
+          pos.y - 10
+        }px)`;
+        fingerIndicator.style.backgroundColor = pinching
+          ? "#f87171"
+          : "#3b82f6";
+
+        let hoveredButton = null;
+        buttons.forEach((btn) => {
+          if (isPointInButton(pos.x, pos.y, btn)) hoveredButton = btn;
+          btn.classList.toggle("highlighted", btn === hoveredButton);
+        });
+
+        const now = Date.now();
+
+        // Pinch click
+        if (pinching && hoveredButton && now - lastClickTime > DEBOUNCE_DELAY) {
+          handleInput(hoveredButton.dataset.value);
+          hoveredButton.classList.add("pressed");
+          lastClickTime = now;
+          setTimeout(() => hoveredButton?.classList.remove("pressed"), 150);
+        }
+
+        // Hover click
+        if (hoveredButton) {
+          if (!hoverTimers.has(hoveredButton))
+            hoverTimers.set(hoveredButton, now);
+          else if (now - hoverTimers.get(hoveredButton) > HOVER_DELAY) {
+            handleInput(hoveredButton.dataset.value);
+            hoveredButton.classList.add("pressed");
+            setTimeout(() => hoveredButton?.classList.remove("pressed"), 150);
+            hoverTimers.set(hoveredButton, now);
+          }
+        }
+
+        buttons.forEach((btn) => {
+          if (btn !== hoveredButton) hoverTimers.delete(btn);
+        });
+
+        gestureStatusEl.textContent = pinching
+          ? "PINCHING (Clicking)"
+          : "OPEN HAND (Hovering)";
+        gestureStatusEl.classList.toggle("text-red-400", pinching);
+        gestureStatusEl.classList.toggle("text-white", !pinching);
+      }
+
+      window.addEventListener("load", () => {
+        updateDisplay();
+        setupCamera();
+      });
+    </script>
+  </body>
+</html>
